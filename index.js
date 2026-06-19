@@ -36,11 +36,17 @@ async function run() {
 
         const db = client.db('skillswap');
         const tasksCollection = db.collection('tasks');
+        const proposalCollection = db.collection('proposals');
 
         app.post('/api/tasks', async (req, res) => {
 
             const taskInfo = req.body;
             const result = await tasksCollection.insertOne(taskInfo);
+            res.json(result);
+
+        })
+        app.get('/api/tasks', async (req, res) => {
+            const result = await tasksCollection.find().toArray();
             res.json(result);
 
         })
@@ -74,7 +80,28 @@ async function run() {
 
             res.json(result)
         })
+        app.delete('/api/tasks/:taskId', async (req, res) => {
+            const { taskId } = req.params;
 
+            const updatedTask = req.body;
+
+            const result = await tasksCollection.deleteOne(
+                { _id: new ObjectId(taskId) }
+            )
+
+
+            res.json(result)
+        })
+
+        // freelancer
+
+        app.post('/api/proposals', async (req, res) => {
+
+            const proposalInfo = req.body;
+            const result = await proposalCollection.insertOne(proposalInfo);
+            res.json(result);
+
+        })
 
 
 
