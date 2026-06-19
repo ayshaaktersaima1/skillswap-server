@@ -93,11 +93,33 @@ async function run() {
             res.json(result)
         })
 
+
+
+        app.get('/api/receivedProposals/:clientId', async (req, res) => {
+
+            const { clientId } = req.params;
+            const result = await proposalCollection.find({ clientId }).toArray();
+            res.json(result);
+
+        })
+
         // freelancer
 
         app.post('/api/proposals', async (req, res) => {
 
             const proposalInfo = req.body;
+
+            const alreadyApplied = await proposalCollection.findOne({
+                taskId: proposalInfo.taskId,
+                freelancersId: proposalInfo.freelancersId
+            });
+
+            if (alreadyApplied) {
+
+                return res.status(409).json({
+                    message: 'You already applied for this task',
+                })
+            }
             const result = await proposalCollection.insertOne(proposalInfo);
             res.json(result);
 
@@ -109,6 +131,7 @@ async function run() {
             res.json(result);
 
         })
+
 
 
 
