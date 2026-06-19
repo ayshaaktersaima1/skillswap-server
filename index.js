@@ -103,6 +103,27 @@ async function run() {
 
         })
 
+        // for client rejecting proposal
+
+        app.patch('/api/rejectingProposal/:proposalId', async (req, res) => {
+            const { proposalId } = req.params;
+
+            const { status } = req.body;
+
+            const result = await proposalCollection.updateOne({ _id: new ObjectId(proposalId) },
+                {
+                    $set: { status: status }
+                })
+
+            res.json(result);
+        })
+
+
+
+
+
+
+
         // freelancer
 
         app.post('/api/proposals', async (req, res) => {
