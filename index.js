@@ -102,6 +102,13 @@ async function run() {
             res.json(result);
 
         })
+        app.get('/api/myProposals/:freelancersId', async (req, res) => {
+
+            const { freelancersId } = req.params;
+            const result = await proposalCollection.find({ freelancersId }).toArray();
+            res.json(result);
+
+        })
 
 
 
