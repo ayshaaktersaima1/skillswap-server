@@ -156,6 +156,24 @@ async function run() {
 
 
 
+        app.get('/api/checkProposal/:taskId/:freelancersId', async (req, res) => {
+            const { taskId, freelancersId } = req.params;
+
+            const proposal = await proposalCollection.findOne({
+                taskId,
+                freelancersId,
+            });
+
+            if (proposal) {
+                res.json({ alreadyApplied: true });
+            } else {
+                res.json({ alreadyApplied: false });
+            }
+        });
+
+
+
+
 
 
 
