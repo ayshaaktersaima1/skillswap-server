@@ -37,6 +37,7 @@ async function run() {
         const db = client.db('skillswap');
         const tasksCollection = db.collection('tasks');
         const proposalCollection = db.collection('proposals');
+        const paymentsCollection = db.collection('payments')
 
         app.post('/api/tasks', async (req, res) => {
 
@@ -119,7 +120,32 @@ async function run() {
         })
 
 
+        app.post('/api/payments', async (req, res) => {
 
+            const paymentInfo = req.body;
+
+            const isExist = await paymentsCollection.findOne({ transaction_id: paymentInfo.transaction_id })
+
+            if (isExist) {
+                return res.json({
+                    message: 'Payment Already done'
+                })
+            }
+
+            const result = await paymentsCollection.insertOne({
+                ...paymentInfo,
+                amount: Number(paymentInfo.amount),
+                paid_at: new Date().toISOString(),
+            });
+
+            await proposalCollection.updateOne({ _id: new ObjectId(paymentInfo.proposalId) },
+                { $set: { status: 'accepted' } })
+
+            await tasksCollection.updateOne({ _id: new ObjectId(paymentInfo.taskId) },
+                { $set: { status: 'in progress' } })
+
+            res.json(result);
+        })
 
 
 
