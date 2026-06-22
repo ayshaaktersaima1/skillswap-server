@@ -37,7 +37,8 @@ async function run() {
         const db = client.db('skillswap');
         const tasksCollection = db.collection('tasks');
         const proposalCollection = db.collection('proposals');
-        const paymentsCollection = db.collection('payments')
+        const paymentsCollection = db.collection('payments');
+        const userCollection = db.collection('user');
 
         app.post('/api/tasks', async (req, res) => {
 
@@ -47,7 +48,14 @@ async function run() {
 
         })
         app.get('/api/tasks', async (req, res) => {
-            const result = await tasksCollection.find().toArray();
+
+            const { status } = req.query;
+
+            const q = {};
+            if (status) {
+                q.status = status;
+            }
+            const result = await tasksCollection.find(q).toArray();
             res.json(result);
 
         })
@@ -147,10 +155,42 @@ async function run() {
             res.json(result);
         })
 
+        app.get('/api/paymentInfo/:clientId', async (req, res) => {
+
+            const { clientId } = req.params;
+            const result = await paymentsCollection.find({
+                client_id
+                    : clientId
+            }).toArray();
+            res.json(result)
+
+        })
+
 
 
 
         // freelancer
+
+        app.get(`/api/freelancerInfo/:freelancersId`, async (req, res) => {
+            const { freelancersId } = req.params;
+            const result = await userCollection.findOne({
+                _id: new ObjectId(freelancersId)
+            });
+            res.json(result)
+
+        })
+        app.patch(`/api/freelancerInfo/:freelancersId`, async (req, res) => {
+            const { freelancersId } = req.params;
+            const freelancersInfo = req.body;
+            const result = await userCollection.updateOne({
+                _id: new ObjectId(freelancersId)
+            },
+                {
+                    $set: freelancersInfo
+                });
+            res.json(result)
+
+        })
 
         app.post('/api/proposals', async (req, res) => {
 
@@ -174,7 +214,15 @@ async function run() {
         app.get('/api/myProposals/:freelancersId', async (req, res) => {
 
             const { freelancersId } = req.params;
-            const result = await proposalCollection.find({ freelancersId }).toArray();
+            const { status } = req.query;
+
+            const q = { freelancersId }
+
+            if (status) {
+                q.status = status;
+            }
+
+            const result = await proposalCollection.find(q).toArray();
             res.json(result);
 
         })
@@ -196,6 +244,18 @@ async function run() {
                 res.json({ alreadyApplied: false });
             }
         });
+
+        app.get('/api/paymentInfoFreelancer/:freelancersId', async (req, res) => {
+
+            const { freelancersId } = req.params;
+            const result = await paymentsCollection.find({
+                freelancer_id
+                    : freelancersId
+            }).toArray();
+
+            res.json(result)
+
+        })
 
 
 
