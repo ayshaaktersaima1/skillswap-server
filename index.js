@@ -165,7 +165,36 @@ async function run() {
             res.json(result)
 
         })
+        // all users except admin
 
+        app.get(`/api/users`, async (req, res) => {
+
+            const result = await userCollection.find({
+                role: {
+                    $in: ['client', 'freelancer']
+                }
+            }).toArray();
+            res.json(result)
+
+        })
+        // for blocking,unblocking
+
+        app.patch(`/api/users/:id`, async (req, res) => {
+
+            const { id } = req.params;
+            const { isBlocked } = req.body;
+
+            const result = await userCollection.updateOne(
+                { _id: new ObjectId(id) },
+                {
+                    $set: {
+                        isBlocked: isBlocked
+                    }
+                }
+            );
+
+
+        })
 
 
 
