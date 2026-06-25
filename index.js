@@ -2,6 +2,7 @@ const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const { createRemoteJWKSet, jwtVerify } = require('jose-cjs');
 
 const app = express()
 dotenv.config();
@@ -31,6 +32,34 @@ const client = new MongoClient(uri, {
         deprecationErrors: true,
     }
 });
+
+const JWKS = createRemoteJWKSet(new URL(`${process.env.CLIENT_URL}/api/auth/jwks`))
+
+const verifyToken = async (req, res, next) => {
+
+    const authHeader = req?.headers?.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer')) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const token = authHeader.split(' ')[1];
+
+    if (!token) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+        const { payload } = await jwtVerify(token, JWKS);
+        console.log(payload)
+        next();
+
+    }
+    catch (error) {
+        return res.status(403).json({ message: "Forbidden" });
+    }
+}
+
+
 async function run() {
     try {
 
@@ -39,6 +68,7 @@ async function run() {
         const proposalCollection = db.collection('proposals');
         const paymentsCollection = db.collection('payments');
         const userCollection = db.collection('user');
+        const reviewsCollection = db.collection('reviewsCollection');
 
         app.post('/api/tasks', async (req, res) => {
 
@@ -59,7 +89,7 @@ async function run() {
             res.json(result);
 
         })
-        app.get('/api/my-tasks/:clientId', async (req, res) => {
+        app.get('/api/my-tasks/:clientId', verifyToken, async (req, res) => {
             const { clientId } = req.params;
             const result = await tasksCollection.find({ clientId }).toArray();
             res.json(result)
@@ -155,6 +185,12 @@ async function run() {
             res.json(result);
         })
 
+        app.get('/api/payments', async (req, res) => {
+
+            const result = await paymentsCollection.find().toArray();
+            res.json(result)
+
+        })
         app.get('/api/paymentInfo/:clientId', async (req, res) => {
 
             const { clientId } = req.params;
@@ -167,7 +203,7 @@ async function run() {
         })
         // all users except admin
 
-        app.get(`/api/users`, async (req, res) => {
+        app.get('/api/users', async (req, res) => {
 
             const result = await userCollection.find({
                 role: {
@@ -177,9 +213,29 @@ async function run() {
             res.json(result)
 
         })
+
+        // all freelancers
+        app.get('/api/freelancers', async (req, res) => {
+            const result = await userCollection.find({ role: { $in: ['freelancer'] } }).toArray();
+
+            res.json(result)
+        })
+
+        // for getting user by email to see if they are blocked or not
+
+        app.get('/api/users/:email', async (req, res) => {
+
+            const { email } = req.params;
+
+            const result = await userCollection.findOne({ email });
+            res.json(result?.isBlocked)
+
+        })
+
+
         // for blocking,unblocking
 
-        app.patch(`/api/users/:id`, async (req, res) => {
+        app.patch('/api/users/:id', async (req, res) => {
 
             const { id } = req.params;
             const { isBlocked } = req.body;
@@ -286,8 +342,36 @@ async function run() {
 
         })
 
+        // for jobs that is completed by a freelancer
 
+        app.get('/api/finishedJobs/:freelancersId', async (req, res) => {
+            const { freelancersId } = req.params;
 
+            const result = await tasksCollection.find({
+
+                completedBy: freelancersId
+            }).toArray();
+
+            res.json(result);
+        });
+
+        app.post('/api/reviews', async (req, res) => {
+            const reviewInfo = req.body;
+
+            const result = await reviewsCollection.insertOne(reviewInfo);
+
+            res.json(result);
+        });
+
+        app.get('/api/reviews/:freelancersId', async (req, res) => {
+            const { freelancersId } = req.params;
+
+            const result = await reviewsCollection.find({
+                reviewer_id: freelancersId
+            }).toArray();
+
+            res.json(result);
+        });
 
 
 
