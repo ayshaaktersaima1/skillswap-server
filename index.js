@@ -83,12 +83,20 @@ async function run() {
             const skip = (Number(page) - 1) * Number(limit);
 
 
-            const { status } = req.query;
+            const { status, search } = req.query;
 
             const q = {};
             if (status) {
                 q.status = status;
             }
+
+            if (search) {
+                q.title = {
+                    $regex: search,
+                    $options: 'i',
+                };
+            }
+
             const result = await tasksCollection.find(q).skip(skip).limit(limit).toArray();
 
             const totalTask = await tasksCollection.countDocuments(q);
@@ -257,7 +265,7 @@ async function run() {
                     }
                 }
             );
-
+            res.json(result);
 
         })
 
