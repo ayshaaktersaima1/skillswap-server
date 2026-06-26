@@ -70,7 +70,7 @@ async function run() {
         const userCollection = db.collection('user');
         const reviewsCollection = db.collection('reviewsCollection');
 
-        app.post('/api/tasks', async (req, res) => {
+        app.post('/api/tasks', verifyToken, async (req, res) => {
 
             const taskInfo = req.body;
             const result = await tasksCollection.insertOne(taskInfo);
@@ -79,14 +79,23 @@ async function run() {
         })
         app.get('/api/tasks', async (req, res) => {
 
+            const { page = 1, limit = 9 } = req.query;
+            const skip = (Number(page) - 1) * Number(limit);
+
+
             const { status } = req.query;
 
             const q = {};
             if (status) {
                 q.status = status;
             }
-            const result = await tasksCollection.find(q).toArray();
-            res.json(result);
+            const result = await tasksCollection.find(q).skip(skip).limit(limit).toArray();
+
+            const totalTask = await tasksCollection.countDocuments(q);
+            totalPage = Math.ceil(totalTask / Number(limit))
+
+            res.json({ data: result, page: Number(page), totalPage });
+
 
         })
         app.get('/api/my-tasks/:clientId', verifyToken, async (req, res) => {
@@ -106,7 +115,7 @@ async function run() {
         });
 
 
-        app.patch('/api/tasks/:taskId', async (req, res) => {
+        app.patch('/api/tasks/:taskId', verifyToken, async (req, res) => {
             const { taskId } = req.params;
 
             const updatedTask = req.body;
@@ -119,7 +128,7 @@ async function run() {
 
             res.json(result)
         })
-        app.delete('/api/tasks/:taskId', async (req, res) => {
+        app.delete('/api/tasks/:taskId', verifyToken, async (req, res) => {
             const { taskId } = req.params;
 
             const updatedTask = req.body;
@@ -134,7 +143,7 @@ async function run() {
 
 
 
-        app.get('/api/receivedProposals/:clientId', async (req, res) => {
+        app.get('/api/receivedProposals/:clientId', verifyToken, async (req, res) => {
 
             const { clientId } = req.params;
             const result = await proposalCollection.find({ clientId }).toArray();
@@ -144,7 +153,7 @@ async function run() {
 
         // for client rejecting proposal
 
-        app.patch('/api/rejectingProposal/:proposalId', async (req, res) => {
+        app.patch('/api/rejectingProposal/:proposalId', verifyToken, async (req, res) => {
             const { proposalId } = req.params;
 
             const { status } = req.body;
@@ -158,7 +167,7 @@ async function run() {
         })
 
 
-        app.post('/api/payments', async (req, res) => {
+        app.post('/api/payments', verifyToken, async (req, res) => {
 
             const paymentInfo = req.body;
 
@@ -185,13 +194,13 @@ async function run() {
             res.json(result);
         })
 
-        app.get('/api/payments', async (req, res) => {
+        app.get('/api/payments', verifyToken, async (req, res) => {
 
             const result = await paymentsCollection.find().toArray();
             res.json(result)
 
         })
-        app.get('/api/paymentInfo/:clientId', async (req, res) => {
+        app.get('/api/paymentInfo/:clientId', verifyToken, async (req, res) => {
 
             const { clientId } = req.params;
             const result = await paymentsCollection.find({
@@ -203,7 +212,7 @@ async function run() {
         })
         // all users except admin
 
-        app.get('/api/users', async (req, res) => {
+        app.get('/api/users', verifyToken, async (req, res) => {
 
             const result = await userCollection.find({
                 role: {
@@ -235,7 +244,7 @@ async function run() {
 
         // for blocking,unblocking
 
-        app.patch('/api/users/:id', async (req, res) => {
+        app.patch('/api/users/:id', verifyToken, async (req, res) => {
 
             const { id } = req.params;
             const { isBlocked } = req.body;
@@ -264,20 +273,33 @@ async function run() {
             res.json(result)
 
         })
-        app.patch(`/api/freelancerInfo/:freelancersId`, async (req, res) => {
+        app.patch('/api/freelancerInfo/:freelancersId', verifyToken, async (req, res) => {
             const { freelancersId } = req.params;
             const freelancersInfo = req.body;
-            const result = await userCollection.updateOne({
-                _id: new ObjectId(freelancersId)
-            },
-                {
-                    $set: freelancersInfo
-                });
-            res.json(result)
 
-        })
+            const updatedInfo = {
+                name: freelancersInfo.name,
+                image: freelancersInfo.image,
+                bio: freelancersInfo.bio,
+                skills: Array.isArray(freelancersInfo.skills)
+                    ? freelancersInfo.skills
+                    : freelancersInfo.skills
+                        .split(',')
+                        .map(skill => skill.trim())
+                        .filter(Boolean),
+                hourlyRate: Number(freelancersInfo.hourlyRate),
+                updatedAt: new Date(),
+            };
 
-        app.post('/api/proposals', async (req, res) => {
+            const result = await userCollection.updateOne(
+                { _id: new ObjectId(freelancersId) },
+                { $set: updatedInfo }
+            );
+
+            res.json(result);
+        });
+
+        app.post('/api/proposals', verifyToken, async (req, res) => {
 
             const proposalInfo = req.body;
 
@@ -296,7 +318,7 @@ async function run() {
             res.json(result);
 
         })
-        app.get('/api/myProposals/:freelancersId', async (req, res) => {
+        app.get('/api/myProposals/:freelancersId', verifyToken, async (req, res) => {
 
             const { freelancersId } = req.params;
             const { status } = req.query;
@@ -315,7 +337,7 @@ async function run() {
 
 
 
-        app.get('/api/checkProposal/:taskId/:freelancersId', async (req, res) => {
+        app.get('/api/checkProposal/:taskId/:freelancersId', verifyToken, async (req, res) => {
             const { taskId, freelancersId } = req.params;
 
             const proposal = await proposalCollection.findOne({
@@ -330,7 +352,7 @@ async function run() {
             }
         });
 
-        app.get('/api/paymentInfoFreelancer/:freelancersId', async (req, res) => {
+        app.get('/api/paymentInfoFreelancer/:freelancersId', verifyToken, async (req, res) => {
 
             const { freelancersId } = req.params;
             const result = await paymentsCollection.find({
@@ -355,14 +377,22 @@ async function run() {
             res.json(result);
         });
 
-        app.post('/api/reviews', async (req, res) => {
+        app.post('/api/reviews', verifyToken, async (req, res) => {
             const reviewInfo = req.body;
 
             const result = await reviewsCollection.insertOne(reviewInfo);
 
             res.json(result);
         });
+        app.get('/api/reviews', async (req, res) => {
+            const result = await reviewsCollection
+                .find()
+                .sort({ created_at: -1 })
+                .limit(6)
+                .toArray();
 
+            res.json(result);
+        });
         app.get('/api/reviews/:freelancersId', async (req, res) => {
             const { freelancersId } = req.params;
 
@@ -371,6 +401,15 @@ async function run() {
             }).toArray();
 
             res.json(result);
+        });
+        app.get('/api/onlyClient/:clientId', async (req, res) => {
+            const { clientId } = req.params;
+
+            const result = await userCollection.findOne({
+                _id: new ObjectId(clientId)
+            });
+
+            res.json({ image: result?.image || '' });
         });
 
 
