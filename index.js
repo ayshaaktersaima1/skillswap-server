@@ -83,7 +83,7 @@ async function run() {
             const skip = (Number(page) - 1) * Number(limit);
 
 
-            const { status, search } = req.query;
+            const { status, search, category } = req.query;
 
             const q = {};
             if (status) {
@@ -95,6 +95,9 @@ async function run() {
                     $regex: search,
                     $options: 'i',
                 };
+            }
+            if (category) {
+                q.category = category;
             }
 
             const result = await tasksCollection.find(q).skip(skip).limit(limit).toArray();
