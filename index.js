@@ -292,7 +292,7 @@ async function run() {
 
         // all freelancers
         app.get('/api/freelancers', async (req, res) => {
-            const result = await userCollection.find({ role: { $in: ['freelancer'] } }).toArray();
+            const result = await userCollection.find({ role: { $in: ['freelancer'] } }).sort({ created_at: -1 }).toArray();
 
             res.json(result)
         })
