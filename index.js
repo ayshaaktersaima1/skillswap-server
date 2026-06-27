@@ -100,7 +100,7 @@ async function run() {
                 q.category = category;
             }
 
-            const result = await tasksCollection.find(q).skip(skip).limit(limit).toArray();
+            const result = await tasksCollection.find(q).sort({ createdAt: -1 }).skip(skip).limit(limit).toArray();
 
             const totalTask = await tasksCollection.countDocuments(q);
             totalPage = Math.ceil(totalTask / Number(limit))
