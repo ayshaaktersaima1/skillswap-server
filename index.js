@@ -468,11 +468,12 @@ async function run() {
 
             res.json(result);
         });
-        app.get('/api/reviews/:freelancersId', async (req, res) => {
-            const { freelancersId } = req.params;
+        app.get('/api/reviews/:freelancersEmail', async (req, res) => {
+            const { freelancersEmail } = req.params;
 
             const result = await reviewsCollection.find({
-                reviewer_id: freelancersId
+
+                completedByEmail: freelancersEmail
             }).toArray();
 
             res.json(result);
