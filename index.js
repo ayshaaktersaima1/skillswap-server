@@ -109,6 +109,11 @@ async function run() {
 
 
         })
+
+        app.get('/api/allTaskForAdmin', verifyToken, async (req, res) => {
+            const result = await tasksCollection.find().toArray();
+            res.json(result);
+        })
         app.get('/api/my-tasks/:clientId', verifyToken, async (req, res) => {
             const { clientId } = req.params;
             const result = await tasksCollection.find({ clientId }).toArray();
@@ -135,6 +140,14 @@ async function run() {
                 { _id: new ObjectId(taskId) },
                 { $set: updatedTask }
             )
+            await proposalCollection.updateMany(
+                { taskId: taskId },
+                {
+                    $set: {
+                        taskTitle: updatedTask.title
+                    }
+                }
+            );
 
 
             res.json(result)
@@ -178,16 +191,30 @@ async function run() {
         })
 
 
-        app.post('/api/payments', verifyToken, async (req, res) => {
 
+
+        app.post('/api/payments', verifyToken, async (req, res) => {
             const paymentInfo = req.body;
 
-            const isExist = await paymentsCollection.findOne({ transaction_id: paymentInfo.transaction_id })
+            const isExist = await paymentsCollection.findOne({
+                transaction_id: paymentInfo.transaction_id,
+            });
 
             if (isExist) {
                 return res.json({
-                    message: 'Payment Already done'
-                })
+                    message: 'Payment Already done',
+                });
+            }
+
+            const alreadyAccepted = await proposalCollection.findOne({
+                taskId: paymentInfo.taskId,
+                status: 'accepted',
+            });
+
+            if (alreadyAccepted) {
+                return res.status(409).json({
+                    message: 'One proposal is already accepted for this task',
+                });
             }
 
             const result = await paymentsCollection.insertOne({
@@ -196,14 +223,43 @@ async function run() {
                 paid_at: new Date().toISOString(),
             });
 
-            await proposalCollection.updateOne({ _id: new ObjectId(paymentInfo.proposalId) },
-                { $set: { status: 'accepted' } })
+            await proposalCollection.updateOne(
+                { _id: new ObjectId(paymentInfo.proposalId) },
+                {
+                    $set: {
+                        status: 'accepted',
+                    },
+                }
+            );
 
-            await tasksCollection.updateOne({ _id: new ObjectId(paymentInfo.taskId) },
-                { $set: { status: 'in progress' } })
+            await proposalCollection.updateMany(
+                {
+                    taskId: paymentInfo.taskId,
+                    _id: {
+                        $ne: new ObjectId(paymentInfo.proposalId),
+                    },
+                },
+                {
+                    $set: {
+                        status: 'rejected',
+                    },
+                }
+            );
+
+            await tasksCollection.updateOne(
+                { _id: new ObjectId(paymentInfo.taskId) },
+                {
+                    $set: {
+                        status: 'in progress',
+                        acceptedProposalId: paymentInfo.proposalId,
+                        selectedFreelancerId: paymentInfo.freelancersId,
+                    },
+                }
+            );
 
             res.json(result);
-        })
+        });
+
 
         app.get('/api/payments', verifyToken, async (req, res) => {
 
@@ -243,14 +299,22 @@ async function run() {
 
         // for getting user by email to see if they are blocked or not
 
-        app.get('/api/users/:email', async (req, res) => {
-
+        app.get('/api/users-for-status/:email', async (req, res) => {
             const { email } = req.params;
 
             const result = await userCollection.findOne({ email });
-            res.json(result?.isBlocked)
 
-        })
+            if (!result) {
+                return res.json({
+                    isBlocked: false,
+                });
+            }
+
+            res.json({
+                isBlocked: result?.isBlocked === true,
+            });
+        });
+
 
 
         // for blocking,unblocking
